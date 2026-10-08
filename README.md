@@ -13,6 +13,7 @@
 - `SourceFiles/CEcoMaxMinFactory.c` — фабрика компонента.
 - `UnitTestFiles/SourceFiles/EcoMaxMin.c` — консольный тестовый клиент.
 - `AssemblyFiles/Mac/clang_arm64/Makefile` — сборка под macOS ARM64.
+- `Eco_MaxMin_report.pdf` - репорт с тестами.
 
 ## Сборка и тестирование
 
