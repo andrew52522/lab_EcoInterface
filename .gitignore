@@ -1,0 +1,5 @@
+# Compiled build outputs
+BuildFiles/
+*.o
+.DS_Store
+.vscode/
