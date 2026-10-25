@@ -3,12 +3,17 @@
 #include "IdEcoMemoryManager1.h"
 #include "IdEcoInterfaceBus1.h"
 #include "IdEcoMaxMin.h"
+#include "IdEcoCalculatorA.h"
 
 /* All cases use the component through its interface (not direct calls). */
 int16_t EcoMain(IEcoUnknown* pIUnk) {
     IEcoSystem1* pISys = 0;
     IEcoInterfaceBus1* pIBus = 0;
     IEcoMaxMin* pIMaxMin = 0;
+    IEcoCalculatorX* pIX = 0;
+    IEcoMaxMin* pIMaxMinAgain = 0;
+    IEcoUnknown* pIUnkFromMax = 0;
+    IEcoUnknown* pIUnkFromX = 0;
     int16_t result;
     int16_t status = 0;
 
@@ -19,6 +24,10 @@ int16_t EcoMain(IEcoUnknown* pIUnk) {
     if (result != 0 || pIBus == 0) { status = 12; goto Release; }
 
 #ifdef ECO_LIB
+    /* The external component owns an instance of CalculatorA. */
+    result = pIBus->pVTbl->RegisterComponent(pIBus, &CID_EcoCalculatorA,
+         (IEcoUnknown*)GetIEcoComponentFactoryPtr_4828F6552E4540E78121EBD220DC360E);
+    if (result != 0) { status = 15; goto Release; }
     result = pIBus->pVTbl->RegisterComponent(pIBus, &CID_EcoMaxMin,
          (IEcoUnknown*)GetIEcoComponentFactoryPtr_48749720D2434B819DCFE025D17DEB17);
     if (result != 0) { status = 13; goto Release; }
@@ -40,7 +49,28 @@ int16_t EcoMain(IEcoUnknown* pIUnk) {
     if (pIMaxMin->pVTbl->MaxLongDouble(pIMaxMin, 2.75L, 2.75L) != 2.75L) { status = 31; goto Release; }
     if (pIMaxMin->pVTbl->MinLongDouble(pIMaxMin, 2.75L, 2.75L) != 2.75L) { status = 32; goto Release; }
 
+    /* IEcoCalculatorX is provided by Eco.MaxMin (not by a direct query to A). */
+    result = pIMaxMin->pVTbl->QueryInterface(pIMaxMin, &IID_IEcoCalculatorX, (void**)&pIX);
+    if (result != 0 || pIX == 0) { status = 33; goto Release; }
+    if (pIX->pVTbl->Addition(pIX, 3, 5) != 8) { status = 34; goto Release; }
+    if (pIX->pVTbl->Subtraction(pIX, 3, 5) != -2) { status = 35; goto Release; }
+
+    /* QueryInterface must work in both directions. */
+    result = pIX->pVTbl->QueryInterface(pIX, &IID_IEcoMaxMin, (void**)&pIMaxMinAgain);
+    if (result != 0 || pIMaxMinAgain == 0) { status = 36; goto Release; }
+    if (pIMaxMinAgain->pVTbl->MaxInt(pIMaxMinAgain, 4, 7) != 7) { status = 37; goto Release; }
+
+    /* Both interfaces belong to one external ACOM object. */
+    result = pIMaxMin->pVTbl->QueryInterface(pIMaxMin, &IID_IEcoUnknown, (void**)&pIUnkFromMax);
+    if (result != 0 || pIUnkFromMax == 0) { status = 38; goto Release; }
+    result = pIX->pVTbl->QueryInterface(pIX, &IID_IEcoUnknown, (void**)&pIUnkFromX);
+    if (result != 0 || pIUnkFromX != pIUnkFromMax) { status = 39; goto Release; }
+
 Release:
+    if (pIUnkFromX != 0) { pIUnkFromX->pVTbl->Release(pIUnkFromX); }
+    if (pIUnkFromMax != 0) { pIUnkFromMax->pVTbl->Release(pIUnkFromMax); }
+    if (pIMaxMinAgain != 0) { pIMaxMinAgain->pVTbl->Release(pIMaxMinAgain); }
+    if (pIX != 0) { pIX->pVTbl->Release(pIX); }
     if (pIMaxMin != 0) { pIMaxMin->pVTbl->Release(pIMaxMin); }
     if (pIBus != 0) { pIBus->pVTbl->Release(pIBus); }
     if (pISys != 0) { pISys->pVTbl->Release(pISys); }
