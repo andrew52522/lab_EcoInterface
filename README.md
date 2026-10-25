@@ -105,7 +105,3 @@ bash scripts/test_all.sh
 - `scripts/test_all.sh` — общий запуск тестов лабораторных № 1 и № 2;
 - `Eco_MaxMin_Lab2_report.pdf` и `.docx` — отчёт по второй лабораторной.
 
-## Источники
-
-- Учебное задание «Задание 2» и лекция 04 по ACOM.
-- [Eco.Education — InsideACOM](https://github.com/peerf-eco/Eco.Education/tree/main/Eco.Pro.Training/001.InsideACOM).
