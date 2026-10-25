@@ -2,6 +2,10 @@
 #include "CEcoMaxMin.h"
 #include "IEcoInterfaceBus1.h"
 #include "IdEcoCalculatorA.h"
+#include "IdEcoCalculatorB.h"
+#include "IdEcoCalculatorC.h"
+#include "IdEcoCalculatorD.h"
+#include "IdEcoCalculatorE.h"
 
 /* Eco component implementation.  No standard C runtime functions are used. */
 static int16_t ECOCALLMETHOD CEcoMaxMin_D17DEB17_QueryInterface(IEcoMaxMinPtr_t me, const UGUID* riid, void** ppv) {
@@ -13,6 +17,11 @@ static int16_t ECOCALLMETHOD CEcoMaxMin_D17DEB17_QueryInterface(IEcoMaxMinPtr_t 
     *ppv = 0;
     if (IsEqualUGUID(riid, &IID_IEcoMaxMin) || IsEqualUGUID(riid, &IID_IEcoUnknown)) {
         *ppv = (void*)&pCMe->m_pVTblIEcoMaxMin;
+        ++pCMe->m_cRef;
+        return ERR_ECO_SUCCESS;
+    }
+    if (IsEqualUGUID(riid, &IID_IEcoCalculatorY) && pCMe->m_pInnerCalculatorY != 0) {
+        *ppv = (void*)&pCMe->m_CalculatorY;
         ++pCMe->m_cRef;
         return ERR_ECO_SUCCESS;
     }
@@ -92,6 +101,51 @@ IEcoCalculatorXVTbl g_xEcoMaxMinCalculatorXVTbl = {
     CEcoMaxMin_CalculatorX_Subtraction
 };
 
+
+/* Second forwarding interface: multiplication/division from Eco.CalculatorE. */
+static int16_t ECOCALLMETHOD CEcoMaxMin_CalculatorY_QueryInterface(
+    IEcoCalculatorYPtr_t me, const UGUID* riid, voidptr_t* ppv) {
+    CEcoMaxMinCalculatorYAdapter* pAdapter = (CEcoMaxMinCalculatorYAdapter*)me;
+    if (pAdapter == 0 || pAdapter->m_pOwner == 0) { return ERR_ECO_POINTER; }
+    return CEcoMaxMin_D17DEB17_QueryInterface(
+        (IEcoMaxMin*)pAdapter->m_pOwner, riid, (void**)ppv);
+}
+static uint32_t ECOCALLMETHOD CEcoMaxMin_CalculatorY_AddRef(IEcoCalculatorYPtr_t me) {
+    CEcoMaxMinCalculatorYAdapter* pAdapter = (CEcoMaxMinCalculatorYAdapter*)me;
+    if (pAdapter == 0 || pAdapter->m_pOwner == 0) { return 0; }
+    return CEcoMaxMin_D17DEB17_AddRef((IEcoMaxMin*)pAdapter->m_pOwner);
+}
+static uint32_t ECOCALLMETHOD CEcoMaxMin_CalculatorY_Release(IEcoCalculatorYPtr_t me) {
+    CEcoMaxMinCalculatorYAdapter* pAdapter = (CEcoMaxMinCalculatorYAdapter*)me;
+    if (pAdapter == 0 || pAdapter->m_pOwner == 0) { return 0; }
+    return CEcoMaxMin_D17DEB17_Release((IEcoMaxMin*)pAdapter->m_pOwner);
+}
+static int32_t ECOCALLMETHOD CEcoMaxMin_CalculatorY_Multiplication(
+    IEcoCalculatorYPtr_t me, int16_t a, int16_t b) {
+    CEcoMaxMinCalculatorYAdapter* pAdapter = (CEcoMaxMinCalculatorYAdapter*)me;
+    IEcoCalculatorY* pInner;
+    if (pAdapter == 0 || pAdapter->m_pOwner == 0) { return 0; }
+    pInner = pAdapter->m_pOwner->m_pInnerCalculatorY;
+    if (pInner == 0) { return 0; }
+    return pInner->pVTbl->Multiplication(pInner, a, b);
+}
+static int16_t ECOCALLMETHOD CEcoMaxMin_CalculatorY_Division(
+    IEcoCalculatorYPtr_t me, int16_t a, int16_t b) {
+    CEcoMaxMinCalculatorYAdapter* pAdapter = (CEcoMaxMinCalculatorYAdapter*)me;
+    IEcoCalculatorY* pInner;
+    if (pAdapter == 0 || pAdapter->m_pOwner == 0) { return 0; }
+    pInner = pAdapter->m_pOwner->m_pInnerCalculatorY;
+    if (pInner == 0) { return 0; }
+    return pInner->pVTbl->Division(pInner, a, b);
+}
+IEcoCalculatorYVTbl g_xEcoMaxMinCalculatorYVTbl = {
+    CEcoMaxMin_CalculatorY_QueryInterface,
+    CEcoMaxMin_CalculatorY_AddRef,
+    CEcoMaxMin_CalculatorY_Release,
+    CEcoMaxMin_CalculatorY_Multiplication,
+    CEcoMaxMin_CalculatorY_Division
+};
+
 /* ACOM interface functions: these are intentionally independent of libc. */
 static int ECOCALLMETHOD CEcoMaxMin_MaxInt(IEcoMaxMinPtr_t me, int a, int b) { (void)me; return a >= b ? a : b; }
 static int ECOCALLMETHOD CEcoMaxMin_MinInt(IEcoMaxMinPtr_t me, int a, int b) { (void)me; return a <= b ? a : b; }
@@ -115,15 +169,32 @@ static int16_t ECOCALLMETHOD initCEcoMaxMin_D17DEB17(CEcoMaxMin_D17DEB17Ptr_t me
 
     pCMe->m_CalculatorX.pVTbl = &g_xEcoMaxMinCalculatorXVTbl;
     pCMe->m_CalculatorX.m_pOwner = pCMe;
+    pCMe->m_CalculatorY.pVTbl = &g_xEcoMaxMinCalculatorYVTbl;
+    pCMe->m_CalculatorY.m_pOwner = pCMe;
     result = pCMe->m_pISys->pVTbl->QueryInterface(pCMe->m_pISys,
         &IID_IEcoInterfaceBus1, (void**)&pIBus);
     if (result != 0 || pIBus == 0) { return ERR_ECO_NOBUS; }
 
-    /* Containment: request an instance of an INDEPENDENT component A. */
+    /* Variant selected at compile time. Every option is a real ACOM component. */
+#if defined(LAB2_BACKEND_C)
+    result = pIBus->pVTbl->QueryComponent(pIBus, &CID_EcoCalculatorC,
+        0, &IID_IEcoCalculatorX, (void**)&pCMe->m_pInnerCalculatorX);
+#elif defined(LAB2_BACKEND_D)
+    result = pIBus->pVTbl->QueryComponent(pIBus, &CID_EcoCalculatorD,
+        0, &IID_IEcoCalculatorX, (void**)&pCMe->m_pInnerCalculatorX);
+#else
     result = pIBus->pVTbl->QueryComponent(pIBus, &CID_EcoCalculatorA,
         0, &IID_IEcoCalculatorX, (void**)&pCMe->m_pInnerCalculatorX);
-    pIBus->pVTbl->Release(pIBus);
+#endif
     if (result != 0 || pCMe->m_pInnerCalculatorX == 0) {
+        pIBus->pVTbl->Release(pIBus);
+        return ERR_ECO_NOINTERFACE;
+    }
+    /* E aggregates B. Expose E's IEcoCalculatorY through our adapter. */
+    result = pIBus->pVTbl->QueryComponent(pIBus, &CID_EcoCalculatorE,
+        0, &IID_IEcoCalculatorY, (void**)&pCMe->m_pInnerCalculatorY);
+    pIBus->pVTbl->Release(pIBus);
+    if (result != 0 || pCMe->m_pInnerCalculatorY == 0) {
         return ERR_ECO_NOINTERFACE;
     }
     return ERR_ECO_SUCCESS;
@@ -138,6 +209,9 @@ static int16_t ECOCALLMETHOD createCEcoMaxMin_D17DEB17(CEcoMaxMin_D17DEB17Ptr_t 
 static void ECOCALLMETHOD deleteCEcoMaxMin_D17DEB17(CEcoMaxMin_D17DEB17Ptr_t me) {
     IEcoMemoryAllocator1* pIMem;
     if (me == 0) { return; }
+    if (me->m_pInnerCalculatorY != 0) {
+        me->m_pInnerCalculatorY->pVTbl->Release(me->m_pInnerCalculatorY);
+    }
     if (me->m_pInnerCalculatorX != 0) {
         me->m_pInnerCalculatorX->pVTbl->Release(me->m_pInnerCalculatorX);
     }
@@ -170,10 +244,12 @@ IEcoMaxMinVTbl g_x6547418E7924437D9216E54B952E0555VTbl_D17DEB17 = {
 CEcoMaxMin_D17DEB17 g_xCEcoMaxMin_D17DEB17 = {
     &g_x6547418E7924437D9216E54B952E0555VTbl_D17DEB17,
     { &g_xEcoMaxMinCalculatorXVTbl, 0 },
+    { &g_xEcoMaxMinCalculatorYVTbl, 0 },
     initCEcoMaxMin_D17DEB17,
     createCEcoMaxMin_D17DEB17,
     deleteCEcoMaxMin_D17DEB17,
     1,
+    0,
     0,
     0,
     0
