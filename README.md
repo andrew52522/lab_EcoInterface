@@ -35,7 +35,7 @@
 
 - Mac с ARM64 и **Apple Command Line Tools** (`clang`, `make`, `git`);
 - распакованный `Eco.Framework` с библиотеками `Mac/arm64`;
-- репозиторий преподавателя [`peerf-eco/Eco.Education`](https://github.com/peerf-eco/Eco.Education), расположенный **рядом** с этим проектом.
+- репозиторий  [`peerf-eco/Eco.Education`](https://github.com/peerf-eco/Eco.Education), расположенный **рядом** с этим проектом.
 
 Пример размещения:
 
