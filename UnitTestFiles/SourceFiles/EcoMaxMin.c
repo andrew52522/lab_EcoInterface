@@ -14,11 +14,15 @@ int16_t EcoMain(IEcoUnknown* pIUnk) {
     IEcoInterfaceBus1* bus = 0;
     IEcoMaxMin* mm = 0;
     IEcoMaxMin* mm2 = 0;
+    IEcoMaxMin* mmFromX = 0;
+    IEcoMaxMin* mmFromUnknown = 0;
     IEcoCalculatorX* x = 0;
     IEcoCalculatorX* xFromY = 0;
+    IEcoCalculatorX* xFromUnknown = 0;
     IEcoCalculatorX* dx = 0;
     IEcoCalculatorX* ex = 0;
     IEcoCalculatorY* y = 0;
+    IEcoCalculatorY* yFromUnknown = 0;
     IEcoCalculatorY* dy = 0;
     IEcoCalculatorY* ey = 0;
     IEcoCalculatorY* yFromX = 0;
@@ -26,6 +30,8 @@ int16_t EcoMain(IEcoUnknown* pIUnk) {
     IEcoUnknown* unkMM = 0;
     IEcoUnknown* unkX = 0;
     IEcoUnknown* unkY = 0;
+    IEcoUnknown* unkEFromX = 0;
+    IEcoUnknown* unkEFromY = 0;
     int16_t result;
     int16_t status = 0;
 
@@ -69,6 +75,7 @@ int16_t EcoMain(IEcoUnknown* pIUnk) {
     if (result != 0 || y == 0) { status = 24; goto Cleanup; }
     if (x->pVTbl->Addition(x,3,5) != 8 || x->pVTbl->Subtraction(x,3,5) != -2) { status = 25; goto Cleanup; }
     if (y->pVTbl->Multiplication(y,3,5) != 15 || y->pVTbl->Division(y,15,3) != 5) { status = 26; goto Cleanup; }
+    if (y->pVTbl->Division(y,15,0) != -1) { status = 41; goto Cleanup; }
 
     result = x->pVTbl->QueryInterface(x, &IID_IEcoCalculatorY, (void**)&yFromX);
     if (result != 0 || yFromX == 0 || yFromX->pVTbl->Multiplication(yFromX,4,3) != 12) { status = 27; goto Cleanup; }
@@ -82,6 +89,14 @@ int16_t EcoMain(IEcoUnknown* pIUnk) {
     if (result != 0 || unkX != unkMM) { status = 31; goto Cleanup; }
     result = y->pVTbl->QueryInterface(y, &IID_IEcoUnknown, (void**)&unkY);
     if (result != 0 || unkY != unkMM) { status = 32; goto Cleanup; }
+    result = x->pVTbl->QueryInterface(x, &IID_IEcoMaxMin, (void**)&mmFromX);
+    if (result != 0 || mmFromX != mm) { status = 42; goto Cleanup; }
+    result = unkMM->pVTbl->QueryInterface(unkMM, &IID_IEcoMaxMin, (void**)&mmFromUnknown);
+    if (result != 0 || mmFromUnknown != mm) { status = 43; goto Cleanup; }
+    result = unkMM->pVTbl->QueryInterface(unkMM, &IID_IEcoCalculatorX, (void**)&xFromUnknown);
+    if (result != 0 || xFromUnknown != x) { status = 44; goto Cleanup; }
+    result = unkMM->pVTbl->QueryInterface(unkMM, &IID_IEcoCalculatorY, (void**)&yFromUnknown);
+    if (result != 0 || yFromUnknown != y) { status = 45; goto Cleanup; }
 
     /* D includes B for Addition/Subtraction and implements Multiplication/Division. */
     result = bus->pVTbl->QueryComponent(bus, &CID_EcoCalculatorD, 0, &IID_IEcoCalculatorX, (void**)&dx);
@@ -97,6 +112,12 @@ int16_t EcoMain(IEcoUnknown* pIUnk) {
     if (result != 0 || ex == 0 || ex->pVTbl->Addition(ex,4,6) != 10) { status = 37; goto Cleanup; }
     result = ex->pVTbl->QueryInterface(ex, &IID_IEcoCalculatorY, (void**)&eyFromX);
     if (result != 0 || eyFromX == 0 || eyFromX->pVTbl->Division(eyFromX,20,4) != 5) { status = 38; goto Cleanup; }
+    /* E aggregates B: both share the same IUnknown. */
+    result = ey->pVTbl->QueryInterface(ey, &IID_IEcoUnknown, (void**)&unkEFromY);
+    if (result != 0 || unkEFromY == 0) { status = 46; goto Cleanup; }
+    result = ex->pVTbl->QueryInterface(ex, &IID_IEcoUnknown, (void**)&unkEFromX);
+    if (result != 0 || unkEFromX == 0) { status = 47; goto Cleanup; }
+    if (unkEFromX != unkEFromY) { status = 48; goto Cleanup; }
 
 #if defined(LAB2_BACKEND_C)
     /* C provides X and Y through the same component. */
@@ -111,6 +132,8 @@ int16_t EcoMain(IEcoUnknown* pIUnk) {
     }
 #endif
 Cleanup:
+    if (unkEFromX != 0) { unkEFromX->pVTbl->Release(unkEFromX); }
+    if (unkEFromY != 0) { unkEFromY->pVTbl->Release(unkEFromY); }
     if (eyFromX != 0) { eyFromX->pVTbl->Release(eyFromX); }
     if (ex != 0) { ex->pVTbl->Release(ex); }
     if (ey != 0) { ey->pVTbl->Release(ey); }
@@ -119,6 +142,10 @@ Cleanup:
     if (unkY != 0) { unkY->pVTbl->Release(unkY); }
     if (unkX != 0) { unkX->pVTbl->Release(unkX); }
     if (unkMM != 0) { unkMM->pVTbl->Release(unkMM); }
+    if (yFromUnknown != 0) { yFromUnknown->pVTbl->Release(yFromUnknown); }
+    if (xFromUnknown != 0) { xFromUnknown->pVTbl->Release(xFromUnknown); }
+    if (mmFromUnknown != 0) { mmFromUnknown->pVTbl->Release(mmFromUnknown); }
+    if (mmFromX != 0) { mmFromX->pVTbl->Release(mmFromX); }
     if (mm2 != 0) { mm2->pVTbl->Release(mm2); }
     if (xFromY != 0) { xFromY->pVTbl->Release(xFromY); }
     if (yFromX != 0) { yFromX->pVTbl->Release(yFromX); }

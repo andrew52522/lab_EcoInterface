@@ -136,6 +136,8 @@ static int16_t ECOCALLMETHOD CEcoMaxMin_CalculatorY_Division(
     if (pAdapter == 0 || pAdapter->m_pOwner == 0) { return 0; }
     pInner = pAdapter->m_pOwner->m_pInnerCalculatorY;
     if (pInner == 0) { return 0; }
+    /* No separate error channel: -1 is an ambiguous fallback. */
+    if (b == 0) { return -1; }
     return pInner->pVTbl->Division(pInner, a, b);
 }
 IEcoCalculatorYVTbl g_xEcoMaxMinCalculatorYVTbl = {

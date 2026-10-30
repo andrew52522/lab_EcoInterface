@@ -35,6 +35,7 @@ static int16_t ECOCALLMETHOD CEcoMaxMin_Factory_Alloc(IEcoComponentFactory* me, 
     IEcoInterfaceBus1MemExt* pIMemExt = 0;
     IEcoMemoryAllocator1* pIMem = 0;
     CEcoMaxMin_D17DEB17* pCObj = 0;
+    CEcoMaxMin_D17DEB17* pCopy = 0;
     const UGUID* pMemoryCID = &CID_EcoMemoryManager1;
     int16_t result;
 
@@ -72,7 +73,15 @@ static int16_t ECOCALLMETHOD CEcoMaxMin_Factory_Alloc(IEcoComponentFactory* me, 
         pISys->pVTbl->Release(pISys);
         return ERR_ECO_OUTOFMEMORY;
     }
-    pCObj = (CEcoMaxMin_D17DEB17*)pIMem->pVTbl->Copy(pIMem, pCObj, &g_xCEcoMaxMin_D17DEB17, sizeof(CEcoMaxMin_D17DEB17));
+    pCopy = (CEcoMaxMin_D17DEB17*)pIMem->pVTbl->Copy(pIMem, pCObj, &g_xCEcoMaxMin_D17DEB17, sizeof(CEcoMaxMin_D17DEB17));
+    if (pCopy == 0) {
+        pIMem->pVTbl->Free(pIMem, pCObj);
+        pIMem->pVTbl->Release(pIMem);
+        pIBus->pVTbl->Release(pIBus);
+        pISys->pVTbl->Release(pISys);
+        return ERR_ECO_OUTOFMEMORY;
+    }
+    pCObj = pCopy;
     pCObj->m_pIMem = pIMem; /* Ownership moves into the component instance. */
 
     result = pCObj->Create(pCObj, pIUnkSystem, pIUnkOuter);
