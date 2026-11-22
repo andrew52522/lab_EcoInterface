@@ -1,5 +1,6 @@
 #include "IEcoSystem1.h"
 #include "CEcoMaxMin.h"
+#include "IEcoMaxMinEvents.h"
 
 /* Eco component implementation.  No standard C runtime functions are used. */
 static int16_t ECOCALLMETHOD CEcoMaxMin_D17DEB17_QueryInterface(IEcoMaxMinPtr_t me, const UGUID* riid, void** ppv) {
@@ -11,6 +12,11 @@ static int16_t ECOCALLMETHOD CEcoMaxMin_D17DEB17_QueryInterface(IEcoMaxMinPtr_t 
     *ppv = 0;
     if (IsEqualUGUID(riid, &IID_IEcoMaxMin) || IsEqualUGUID(riid, &IID_IEcoUnknown)) {
         *ppv = (void*)&pCMe->m_pVTblIEcoMaxMin;
+        ++pCMe->m_cRef;
+        return ERR_ECO_SUCCESS;
+    }
+    if (IsEqualUGUID(riid, &IID_IEcoConnectionPointContainer)) {
+        *ppv = &pCMe->container;
         ++pCMe->m_cRef;
         return ERR_ECO_SUCCESS;
     }
@@ -35,17 +41,95 @@ static uint32_t ECOCALLMETHOD CEcoMaxMin_D17DEB17_Release(IEcoMaxMinPtr_t me) {
     return nRef;
 }
 
-/* ACOM interface functions: these are intentionally independent of libc. */
-static int ECOCALLMETHOD CEcoMaxMin_MaxInt(IEcoMaxMinPtr_t me, int a, int b) { (void)me; return a >= b ? a : b; }
-static int ECOCALLMETHOD CEcoMaxMin_MinInt(IEcoMaxMinPtr_t me, int a, int b) { (void)me; return a <= b ? a : b; }
-static long ECOCALLMETHOD CEcoMaxMin_MaxLong(IEcoMaxMinPtr_t me, long a, long b) { (void)me; return a >= b ? a : b; }
-static long ECOCALLMETHOD CEcoMaxMin_MinLong(IEcoMaxMinPtr_t me, long a, long b) { (void)me; return a <= b ? a : b; }
-static float ECOCALLMETHOD CEcoMaxMin_MaxFloat(IEcoMaxMinPtr_t me, float a, float b) { (void)me; return a >= b ? a : b; }
-static float ECOCALLMETHOD CEcoMaxMin_MinFloat(IEcoMaxMinPtr_t me, float a, float b) { (void)me; return a <= b ? a : b; }
-static double ECOCALLMETHOD CEcoMaxMin_MaxDouble(IEcoMaxMinPtr_t me, double a, double b) { (void)me; return a >= b ? a : b; }
-static double ECOCALLMETHOD CEcoMaxMin_MinDouble(IEcoMaxMinPtr_t me, double a, double b) { (void)me; return a <= b ? a : b; }
-static long double ECOCALLMETHOD CEcoMaxMin_MaxLongDouble(IEcoMaxMinPtr_t me, long double a, long double b) { (void)me; return a >= b ? a : b; }
-static long double ECOCALLMETHOD CEcoMaxMin_MinLongDouble(IEcoMaxMinPtr_t me, long double a, long double b) { (void)me; return a <= b ? a : b; }
+static int ECOCALLMETHOD CEcoMaxMin_MaxInt(IEcoMaxMinPtr_t me, int a, int b) {
+    CEcoMaxMin_D17DEB17* owner = (CEcoMaxMin_D17DEB17*)me;
+    int first;
+    CEcoMaxMin_Notify(owner, ECO_MAXMIN_MAX, ECO_MAXMIN_INT, 0);
+    first = a >= b;
+    CEcoMaxMin_Notify(owner, ECO_MAXMIN_MAX, ECO_MAXMIN_INT, first ? 1 : 2);
+    return first ? a : b;
+}
+
+static int ECOCALLMETHOD CEcoMaxMin_MinInt(IEcoMaxMinPtr_t me, int a, int b) {
+    CEcoMaxMin_D17DEB17* owner = (CEcoMaxMin_D17DEB17*)me;
+    int first;
+    CEcoMaxMin_Notify(owner, ECO_MAXMIN_MIN, ECO_MAXMIN_INT, 0);
+    first = a <= b;
+    CEcoMaxMin_Notify(owner, ECO_MAXMIN_MIN, ECO_MAXMIN_INT, first ? 1 : 2);
+    return first ? a : b;
+}
+
+static long ECOCALLMETHOD CEcoMaxMin_MaxLong(IEcoMaxMinPtr_t me, long a, long b) {
+    CEcoMaxMin_D17DEB17* owner = (CEcoMaxMin_D17DEB17*)me;
+    int first;
+    CEcoMaxMin_Notify(owner, ECO_MAXMIN_MAX, ECO_MAXMIN_LONG, 0);
+    first = a >= b;
+    CEcoMaxMin_Notify(owner, ECO_MAXMIN_MAX, ECO_MAXMIN_LONG, first ? 1 : 2);
+    return first ? a : b;
+}
+
+static long ECOCALLMETHOD CEcoMaxMin_MinLong(IEcoMaxMinPtr_t me, long a, long b) {
+    CEcoMaxMin_D17DEB17* owner = (CEcoMaxMin_D17DEB17*)me;
+    int first;
+    CEcoMaxMin_Notify(owner, ECO_MAXMIN_MIN, ECO_MAXMIN_LONG, 0);
+    first = a <= b;
+    CEcoMaxMin_Notify(owner, ECO_MAXMIN_MIN, ECO_MAXMIN_LONG, first ? 1 : 2);
+    return first ? a : b;
+}
+
+static float ECOCALLMETHOD CEcoMaxMin_MaxFloat(IEcoMaxMinPtr_t me, float a, float b) {
+    CEcoMaxMin_D17DEB17* owner = (CEcoMaxMin_D17DEB17*)me;
+    int first;
+    CEcoMaxMin_Notify(owner, ECO_MAXMIN_MAX, ECO_MAXMIN_FLOAT, 0);
+    first = a >= b;
+    CEcoMaxMin_Notify(owner, ECO_MAXMIN_MAX, ECO_MAXMIN_FLOAT, first ? 1 : 2);
+    return first ? a : b;
+}
+
+static float ECOCALLMETHOD CEcoMaxMin_MinFloat(IEcoMaxMinPtr_t me, float a, float b) {
+    CEcoMaxMin_D17DEB17* owner = (CEcoMaxMin_D17DEB17*)me;
+    int first;
+    CEcoMaxMin_Notify(owner, ECO_MAXMIN_MIN, ECO_MAXMIN_FLOAT, 0);
+    first = a <= b;
+    CEcoMaxMin_Notify(owner, ECO_MAXMIN_MIN, ECO_MAXMIN_FLOAT, first ? 1 : 2);
+    return first ? a : b;
+}
+
+static double ECOCALLMETHOD CEcoMaxMin_MaxDouble(IEcoMaxMinPtr_t me, double a, double b) {
+    CEcoMaxMin_D17DEB17* owner = (CEcoMaxMin_D17DEB17*)me;
+    int first;
+    CEcoMaxMin_Notify(owner, ECO_MAXMIN_MAX, ECO_MAXMIN_DOUBLE, 0);
+    first = a >= b;
+    CEcoMaxMin_Notify(owner, ECO_MAXMIN_MAX, ECO_MAXMIN_DOUBLE, first ? 1 : 2);
+    return first ? a : b;
+}
+
+static double ECOCALLMETHOD CEcoMaxMin_MinDouble(IEcoMaxMinPtr_t me, double a, double b) {
+    CEcoMaxMin_D17DEB17* owner = (CEcoMaxMin_D17DEB17*)me;
+    int first;
+    CEcoMaxMin_Notify(owner, ECO_MAXMIN_MIN, ECO_MAXMIN_DOUBLE, 0);
+    first = a <= b;
+    CEcoMaxMin_Notify(owner, ECO_MAXMIN_MIN, ECO_MAXMIN_DOUBLE, first ? 1 : 2);
+    return first ? a : b;
+}
+
+static long double ECOCALLMETHOD CEcoMaxMin_MaxLongDouble(IEcoMaxMinPtr_t me, long double a, long double b) {
+    CEcoMaxMin_D17DEB17* owner = (CEcoMaxMin_D17DEB17*)me;
+    int first;
+    CEcoMaxMin_Notify(owner, ECO_MAXMIN_MAX, ECO_MAXMIN_LONG_DOUBLE, 0);
+    first = a >= b;
+    CEcoMaxMin_Notify(owner, ECO_MAXMIN_MAX, ECO_MAXMIN_LONG_DOUBLE, first ? 1 : 2);
+    return first ? a : b;
+}
+
+static long double ECOCALLMETHOD CEcoMaxMin_MinLongDouble(IEcoMaxMinPtr_t me, long double a, long double b) {
+    CEcoMaxMin_D17DEB17* owner = (CEcoMaxMin_D17DEB17*)me;
+    int first;
+    CEcoMaxMin_Notify(owner, ECO_MAXMIN_MIN, ECO_MAXMIN_LONG_DOUBLE, 0);
+    first = a <= b;
+    CEcoMaxMin_Notify(owner, ECO_MAXMIN_MIN, ECO_MAXMIN_LONG_DOUBLE, first ? 1 : 2);
+    return first ? a : b;
+}
 
 static int16_t ECOCALLMETHOD initCEcoMaxMin_D17DEB17(CEcoMaxMin_D17DEB17Ptr_t me, IEcoUnknownPtr_t pIUnkSystem) {
     CEcoMaxMin_D17DEB17* pCMe = (CEcoMaxMin_D17DEB17*)me;
@@ -66,6 +150,9 @@ static int16_t ECOCALLMETHOD createCEcoMaxMin_D17DEB17(CEcoMaxMin_D17DEB17Ptr_t 
 static void ECOCALLMETHOD deleteCEcoMaxMin_D17DEB17(CEcoMaxMin_D17DEB17Ptr_t me) {
     IEcoMemoryAllocator1* pIMem;
     if (me == 0) { return; }
+    if (me->sink != 0) {
+        me->point.pVTbl->Unadvise(&me->point, me->cookie);
+    }
     if (me->m_pISys != 0) {
         me->m_pISys->pVTbl->Release(me->m_pISys);
     }
@@ -98,6 +185,10 @@ CEcoMaxMin_D17DEB17 g_xCEcoMaxMin_D17DEB17 = {
     createCEcoMaxMin_D17DEB17,
     deleteCEcoMaxMin_D17DEB17,
     1,
+    0,
+    0,
+    {&CEcoMaxMin_ContainerVTbl},
+    {&CEcoMaxMin_PointVTbl},
     0,
     0
 };

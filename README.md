@@ -1,49 +1,62 @@
-# Лабораторная работа №1 — вариант 26
+# Eco.MaxMin · лабораторная работа №3 · вариант 26
 
-## Eco.MaxMin
+Компонент ACOM выбирает максимум или минимум из двух чисел. Клиент может подписаться на два шага вычисления через точку подключения.
 
-Компонент ACOM для вычисления максимального и минимального значений из двух чисел. Реализован на языке C.
+## Сборка и проверка на Mac
 
-Интерфейс `IEcoMaxMin` содержит методы `Max` и `Min` для типов `int`, `long`, `float`, `double` и `long double`. Вызов методов выполняется через интерфейс компонента. Для создания компонента используется фабрика ACOM.
+Нужны Mac с Apple Silicon, Apple Command Line Tools и `Eco.Framework` с заголовками и статическими библиотеками для `Mac/arm64`. Makefile использует Apple Clang в режиме C89. Из корня проекта выполните:
 
-## Структура проекта
-
-- `SharedFiles/IEcoMaxMin.h` — интерфейс компонента.
-- `SourceFiles/CEcoMaxMin.c` — реализация методов.
-- `SourceFiles/CEcoMaxMinFactory.c` — фабрика компонента.
-- `UnitTestFiles/SourceFiles/EcoMaxMin.c` — консольный тестовый клиент.
-- `AssemblyFiles/Mac/clang_arm64/Makefile` — сборка под macOS ARM64.
-- `Eco_MaxMin_report.pdf` - репорт с тестами.
-
-## Сборка и тестирование
-
-Необходимы Apple Command Line Tools и установленный `Eco.Framework` с библиотеками для `Mac/arm64`.
-
-В корне проекта:
-
-```bash
-export ECO_FRAMEWORK="$HOME/Downloads/Eco_labs/Eco.Framework"
-make -C AssemblyFiles/Mac/clang_arm64 test
+```sh
+make -C AssemblyFiles/Mac/clang_arm64 ECO_FRAMEWORK="$HOME/Downloads/Eco.Framework" test
 ```
 
-После успешного выполнения программа выводит:
+Если Framework установлен в другом каталоге, подставьте его путь. Одна команда собирает библиотеку и UnitTest, запускает старые проверки без подписки, затем проверяет точку подключения и события. Ожидаемый вывод UnitTest:
 
 ```text
 PASS: 12 Eco.MaxMin UnitTest checks
+MaxInt(-5, 9): OnCompare -> OnSelect(2) -> 9
+MinInt(-5, 9): OnCompare -> OnSelect(1) -> -5
+Lab 3: 30 numeric and event cases passed
+After Unadvise: MaxInt(-5, 9) = 9, events = 0
+Lab 3: 100 subscription cycles passed
+PASS: Lab 3 connection point and event checks
 ```
 
-Проверяются операции над пятью числовыми типами, включая отрицательные и равные значения. Тестовый клиент получает компонент через `IEcoInterfaceBus1` и вызывает методы интерфейса `IEcoMaxMin`.
+Для каждого из десяти методов UnitTest проверяет выбор первого, второго и случай равных операндов. В ста циклах на одном экземпляре он проверяет получение нового `cookie`, доставку двух событий, освобождение временных ссылок и отсутствие событий после отписки.
 
-Результаты сборки находятся в `BuildFiles/Mac/arm64/`:
+При ошибке UnitTest печатает имя проверки и возвращает ненулевой код. Для полной пересборки сначала выполните `make -C AssemblyFiles/Mac/clang_arm64 clean`.
 
-- `StaticRelease/` — статическая библиотека компонента (`.a`);
-- `UnitTest/EcoMaxMin` — исполняемый тестовый клиент.
+- Статическая библиотека — `BuildFiles/Mac/arm64/StaticRelease/lib48749720D2434B819DCFE025D17DEB17.a`.
+- Исполняемый UnitTest — `BuildFiles/Mac/arm64/UnitTest/EcoMaxMin`.
+- Отчёт — [Eco_MaxMin_Lab3_report.docx](Eco_MaxMin_Lab3_report.docx).
 
-Для очистки результатов сборки:
+Готовый UnitTest и все три объектных файла в приложенной библиотеке имеют архитектуру ARM64 и минимальную версию **macOS 26.0** по метаданным Mach-O (`LC_BUILD_VERSION`). Сборка и тесты проверены на macOS 26.7, в том числе из каталога с пробелами в пути.
 
-```bash
-make -C AssemblyFiles/Mac/clang_arm64 clean
-```
-## Evidence
-<img width="450" height="218" alt="image" src="https://github.com/user-attachments/assets/ee181b79-32e5-42ed-90ad-03b20949eafd" />
+На Mac с более ранней версией macOS сначала очистите готовую сборку командой `clean`, указанной выше, затем выполните ту же команду `make test` для сборки из исходников. Понадобятся Apple Command Line Tools, совместимые с установленной версией macOS, и совместимая сборка `Eco.Framework` для `Mac/arm64`. Прогонов на версиях macOS ниже 26.7 не было.
 
+## Подписка и события
+
+`EcoMain` получает один `IEcoMaxMin` через шину. Через `QueryInterface` он получает `IEcoConnectionPointContainer`, затем вызывает `FindConnectionPoint(IID_IEcoMaxMinEvents)`. Точка рассчитана на одного приёмника. `Advise` проверяет поддержку `IEcoMaxMinEvents`, удерживает ссылку на приёмник и выдаёт ненулевой `cookie`.
+
+| Событие | Момент вызова | Данные |
+| --- | --- | --- |
+| `OnCompare` | Перед сравнением | Операция `Max` или `Min`, тип аргументов |
+| `OnSelect` | После сравнения, перед возвратом числа | Та же операция и тип, номер выбранного операнда (1 или 2) |
+
+Оба события доставляются синхронно. Для каждого уведомления компонент вызывает `EnumConnections`, получает запись через `Next`, запрашивает у приёмника интерфейс событий и освобождает временные ссылки после вызова. Это работает для `int`, `long`, `float`, `double` и `long double`. При равенстве выбирается первый операнд. Код возврата обработчика не влияет на числовой результат.
+
+`Unadvise(cookie)` освобождает ссылку точки на приёмник. Для проверки отписки UnitTest запрашивает новый перечислитель подписок и повторяет `MaxInt(-5, 9)`. Перечислитель пуст, результат равен 9, новых событий 0. Неверный или устаревший `cookie` оставляет действующую подписку, повторный `Advise` после отписки выдаёт новый `cookie`.
+
+Ссылки на числовой интерфейс, контейнер и точку удерживают один экземпляр компонента. Перечислитель точек удерживает точку, а перечислитель подписок хранит снимок записи со своей ссылкой на приёмник. Клиент освобождает ссылки из `Next` и сами перечислители по отдельности. Если при уничтожении компонента подписка ещё активна, компонент освобождает её сам.
+
+## Карта файлов
+
+| Файл | Назначение |
+| --- | --- |
+| `SharedFiles/IEcoMaxMin.h`, `SharedFiles/IdEcoMaxMin.h` | Исходный числовой интерфейс и CID компонента |
+| `SharedFiles/IEcoMaxMinEvents.h` | IID событий, операции, типы и два обработчика |
+| `HeaderFiles/CEcoMaxMin.h`, `SourceFiles/CEcoMaxMin.c` | Состояние экземпляра, числовые методы и вызовы уведомлений |
+| `SourceFiles/CEcoMaxMinConnectionPoint.c` | Контейнер, точка, два перечислителя и доставка событий |
+| `SourceFiles/CEcoMaxMinFactory.c` | Создание экземпляра через шину |
+| `UnitTestFiles/SourceFiles/EcoMaxMin.c` | Исходные проверки, один тестовый приёмник и отдельный набор проверок лабы №3 |
+| `AssemblyFiles/Mac/clang_arm64/Makefile` | Сборка под macOS ARM64 и цель `test` |

@@ -1,7 +1,7 @@
 # Native macOS Apple Silicon build.  Works with Apple Command Line Tools.
 # Override ECO_FRAMEWORK as needed; no full Xcode installation required.
-ROOT := $(abspath ../../..)
-ECO_FRAMEWORK ?= $(HOME)/Downloads/Eco_labs/Eco.Framework
+ROOT := ../../..
+ECO_FRAMEWORK ?= $(HOME)/Downloads/Eco.Framework
 CC := clang
 AR := ar
 COMP_ID := 48749720D2434B819DCFE025D17DEB17
@@ -25,22 +25,28 @@ BUS_LIB := $(ECO_FRAMEWORK)/Eco.InterfaceBus1/BuildFiles/Mac/$(ARCH)/StaticRelea
 MEM_LIB := $(ECO_FRAMEWORK)/Eco.MemoryManager1/BuildFiles/Mac/$(ARCH)/StaticRelease/lib0000000000000000000000004D656D31.a
 
 INCLUDES := -I"$(ROOT)/HeaderFiles" -I"$(ROOT)/SharedFiles" \
-            -I"$(CORE)" -I"$(BUS)" -I"$(MEM)" -I"$(FS)" -I"$(SYS)"
+            -isystem "$(CORE)" -isystem "$(BUS)" -isystem "$(MEM)" -isystem "$(FS)"
 DEFINES := -DECO_LIB -DECO_APPLE -DECO_MAC -DECO_AARCH64 -DUGUID_UTILITY
-CFLAGS := -arch $(ARCH) -std=c89 -Wall -Wextra -Wno-unused-parameter -O2 $(DEFINES) $(INCLUDES)
+CFLAGS := -arch $(ARCH) -std=c89 -Wall -Wextra -Wno-unused-parameter -O2 $(DEFINES) $(INCLUDES) -MD -MP
 
 OBJ_MAIN := $(OBJDIR)/CEcoMaxMin.o
 OBJ_FACTORY := $(OBJDIR)/CEcoMaxMinFactory.o
+OBJ_POINT := $(OBJDIR)/CEcoMaxMinConnectionPoint.o
 OBJ_TEST := $(OBJDIR)/EcoMaxMinTest.o
+COMPONENT_OBJECTS := $(OBJ_MAIN) $(OBJ_FACTORY) $(OBJ_POINT)
 
 .PHONY: all test check-env clean help
 all: $(UNITTEST)
+
+-include $(COMPONENT_OBJECTS:.o=.d) $(OBJ_TEST:.o=.d)
 
 help:
 	@echo 'Use make all or make test. Required: ECO_FRAMEWORK points to Eco.Framework.'
 
 check-env:
-	@for f in "$(CORE)/IEcoBase1.h" "$(BUS)/IEcoInterfaceBus1.h" \
+	@for f in "$(CORE)/IEcoBase1.h" "$(CORE)/IEcoConnectionPoint.h" \
+	  "$(CORE)/IEcoConnectionPointContainer.h" "$(CORE)/IEcoEnumConnections.h" \
+	  "$(CORE)/IEcoEnumConnectionPoints.h" "$(BUS)/IEcoInterfaceBus1.h" \
 	  "$(MEM)/IEcoMemoryAllocator1.h" "$(SYS)/IEcoSystem1.h" \
 	  "$(SYS_LIB)" "$(FS_LIB)" "$(BUS_LIB)" "$(MEM_LIB)"; do \
 	  if [ ! -f "$$f" ]; then echo "MISSING: $$f"; exit 1; fi; \
@@ -59,17 +65,18 @@ $(OBJ_FACTORY): $(ROOT)/SourceFiles/CEcoMaxMinFactory.c $(ROOT)/HeaderFiles/CEco
 $(OBJ_TEST): $(ROOT)/UnitTestFiles/SourceFiles/EcoMaxMin.c $(ROOT)/SharedFiles/IEcoMaxMin.h | $(OBJDIR)
 	$(CC) $(CFLAGS) -c "$<" -o "$@"
 
-$(LIBRARY): $(OBJ_MAIN) $(OBJ_FACTORY) | $(STATIC_DIR)
-	$(AR) rcs "$@" $(OBJ_MAIN) $(OBJ_FACTORY)
+$(OBJ_POINT): $(ROOT)/SourceFiles/CEcoMaxMinConnectionPoint.c | $(OBJDIR)
+	$(CC) $(CFLAGS) -c "$<" -o "$@"
+
+$(LIBRARY): $(COMPONENT_OBJECTS) | $(STATIC_DIR)
+	$(AR) rcs "$@" $(COMPONENT_OBJECTS)
 
 $(UNITTEST): $(OBJ_TEST) $(LIBRARY) | $(APP_DIR)
 	$(CC) -arch $(ARCH) -o "$@" $(OBJ_TEST) $(LIBRARY) \
 	  "$(BUS_LIB)" "$(MEM_LIB)" "$(FS_LIB)" "$(SYS_LIB)" -framework Foundation -framework Cocoa
 
 test: check-env $(UNITTEST)
-	@"$(UNITTEST)"; result=$$?; \
-	  if [ "$$result" -eq 0 ]; then echo 'PASS: 12 Eco.MaxMin UnitTest checks'; \
-	  else echo "FAIL: EcoMain exit code $$result"; exit "$$result"; fi
+	@"$(UNITTEST)"
 
 clean:
 	rm -rf "$(BUILDDIR)"
